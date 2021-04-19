@@ -1,0 +1,7 @@
+tsd
+folium
+telluric
+jupyter
+sentinelsat
+tenacity
+calval
