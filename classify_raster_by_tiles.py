@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import telluric as tl
 import matplotlib.pyplot as plt
+
+from tqdm import tqdm
 from torch import nn
 from torch.autograd import Variable
 from torch.utils.data import Dataset
@@ -41,18 +43,19 @@ def imshow(inp, fig_size=4, title=None):
 
 
 def initialize_resnet(num_classes, use_pretrained=True):
-    model = models.resnet50(pretrained=use_pretrained)
-    # Adjust last fully connected layer to number of classes in the PlanetAmazonChallenge
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, num_classes)
-    return model
+    resnet_model = models.resnet50(pretrained=use_pretrained)
+    # Adjust last fully connected layer to number of classes in the
+    # PlanetAmazonChallenge
+    num_features = resnet_model.fc.in_features
+    resnet_model.fc = nn.Linear(num_features, num_classes)
+    return resnet_model
 
 
-def classify(model, input, multi_label_binarizer, show_images=False, threshold=0):
+def classify(model, input_tensor, multi_label_binarizer, show_images=False, threshold=0):
     was_training = model.training
     model.eval()
     with torch.no_grad():
-        inputs = input.to(device)
+        inputs = input_tensor.to(device)
         outputs = model(inputs)
         preds = outputs > threshold
         # recover categorical labels from binary predictions
@@ -93,10 +96,16 @@ def load_classifier(dataset):
     checkpoint = torch.load(MODEL_PATH, map_location='cpu')
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    last_epoch = checkpoint['epoch']
-    epoch_loss_evolution = checkpoint['loss_evolution']
-
     return model
+
+
+def classify_raster(raster, model, transforms, multi_label_binarizer):
+    image = preprocess_raster_image(raster)
+    input_tensor = image_loader(image, transforms)
+    labels = classify(model, input_tensor, multi_label_binarizer, show_images=False, threshold=0.2)
+    geo_feature = tl.GeoFeature(raster.footprint(), {'labels': labels[0]})
+
+    return geo_feature
 
 
 class KaggleAmazonDataset(Dataset):
@@ -182,10 +191,13 @@ if __name__ == "__main__":
     model = load_classifier(dataset)
 
     # Process raster by chunks of size 224x224 pixels.
-    for chunk in raster.chunks(224):
-        image = preprocess_raster_image(chunk.raster)
-        # plt.figure()
-        # plt.imshow(image)
-        # plt.show()
-        input_tensor = image_loader(image, test_transforms)
-        tags = classify(model, input_tensor, dataset.mlb, show_images=True, threshold=0.2)
+    geo_features_list = []
+    chunk_size = 224
+    raster_size = max(raster.shape)  # this assumes raster width and height are equal
+    number_of_chunks = int(np.ceil(raster_size/chunk_size)**2)
+    for chunk in tqdm(raster.chunks(chunk_size), total=number_of_chunks):
+        raster = chunk.raster
+        geo_features_list.append(classify_raster(raster, model, test_transforms, dataset.mlb))
+
+    feature_collection = tl.FeatureCollection(geo_features_list)
+    feature_collection.save('test_classification.geojson')
