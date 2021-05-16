@@ -176,10 +176,6 @@ class KaggleAmazonDataset(Dataset):
 
 #%% main
 if __name__ == "__main__":
-    # Load raster
-    raster_path = 'data/high_res_Para/analytic_2019-06_2019-11_mosaic/L15-0722E-1001N.tif'
-    raster = tl.GeoRaster2.open(raster_path)
-
     test_transforms = transforms.Compose([
         transforms.Resize(256),
         transforms.CenterCrop(224),
@@ -193,11 +189,30 @@ if __name__ == "__main__":
     # Process raster by chunks of size 224x224 pixels.
     geo_features_list = []
     chunk_size = 224
+    rasters_path = 'data/high_res_Para/analytic_2019-06_2019-11_mosaic'
+
+    # Load one raster to estimate number of chunks that will be processed per each raster
+    raster_path = os.path.join(rasters_path, os.listdir(rasters_path)[0])
+    raster = tl.GeoRaster2.open(raster_path)
     raster_size = max(raster.shape)  # this assumes raster width and height are equal
-    number_of_chunks = int(np.ceil(raster_size/chunk_size)**2)
-    for chunk in tqdm(raster.chunks(chunk_size), total=number_of_chunks):
-        raster = chunk.raster
-        geo_features_list.append(classify_raster(raster, model, test_transforms, dataset.mlb))
+    number_of_chunks = int(np.ceil(raster_size / chunk_size) ** 2)
+
+    rasters = os.listdir(rasters_path)
+    number_of_rasters = len(rasters)
+
+    with tqdm(total=number_of_rasters * number_of_chunks) as pbar:
+        for raster_filename in rasters:
+            if raster_filename.endswith(".tif"):
+                # Load raster
+                raster_path = os.path.join(rasters_path, raster_filename)
+                raster = tl.GeoRaster2.open(raster_path)
+
+                for chunk in raster.chunks(chunk_size):
+                    raster = chunk.raster
+                    geo_features_list.append(classify_raster(raster, model, test_transforms, dataset.mlb))
+                    pbar.update(1)
+            else:
+                continue
 
     feature_collection = tl.FeatureCollection(geo_features_list)
-    feature_collection.save('test_classification.geojson')
+    feature_collection.save('test_classification_all_rasters.geojson')
