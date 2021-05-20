@@ -23,6 +23,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 #%% Constants
 TRAIN_DIR = 'train/train-jpg'
 MODEL_PATH = os.path.join('planet_challenge_model_one_cycle_lr_v2.tar')
+DATA_PATH = 'data/high_res_Para'
+DATASET_NAME = 'analytic_2020-06_2020-08_mosaic'
+OUTPUT_PATH = os.path.join(DATA_PATH, 'classification')
 
 
 #%% Auxiliary functions
@@ -189,9 +192,9 @@ if __name__ == "__main__":
     # Process raster by chunks of size 224x224 pixels.
     geo_features_list = []
     chunk_size = 224
-    rasters_path = 'data/high_res_Para/analytic_2019-06_2019-11_mosaic'
 
     # Load one raster to estimate number of chunks that will be processed per each raster
+    rasters_path = os.path.join(DATA_PATH, DATASET_NAME)
     raster_path = os.path.join(rasters_path, os.listdir(rasters_path)[0])
     raster = tl.GeoRaster2.open(raster_path)
     raster_size = max(raster.shape)  # this assumes raster width and height are equal
@@ -215,4 +218,6 @@ if __name__ == "__main__":
                 continue
 
     feature_collection = tl.FeatureCollection(geo_features_list)
-    feature_collection.save('test_classification_all_rasters.geojson')
+    output_path = os.path.join(OUTPUT_PATH, DATASET_NAME + '.geojson')
+    os.makedirs(OUTPUT_PATH, exist_ok=True)
+    feature_collection.save(output_path)
