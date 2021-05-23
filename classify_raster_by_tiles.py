@@ -24,8 +24,8 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 TRAIN_DIR = 'train/train-jpg'
 MODEL_PATH = os.path.join('planet_challenge_model_one_cycle_lr_v2.tar')
 DATA_PATH = 'data/high_res_Para'
-DATASET_NAME = 'analytic_2020-06_2020-08_mosaic'
-OUTPUT_PATH = os.path.join(DATA_PATH, 'classification')
+DATASET_NAME = 'analytic_2016-06_2016-11_mosaic'
+OUTPUT_FOLDER = os.path.join(DATA_PATH, 'classification')
 
 
 #%% Auxiliary functions
@@ -218,6 +218,6 @@ if __name__ == "__main__":
                 continue
 
     feature_collection = tl.FeatureCollection(geo_features_list)
-    output_path = os.path.join(OUTPUT_PATH, DATASET_NAME + '.geojson')
-    os.makedirs(OUTPUT_PATH, exist_ok=True)
+    output_path = os.path.join(OUTPUT_FOLDER, DATASET_NAME + '.geojson')
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
     feature_collection.save(output_path)
